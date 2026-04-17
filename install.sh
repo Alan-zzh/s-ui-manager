@@ -57,6 +57,39 @@ install_sui() {
     print_success "S-UI安装完成"
 }
 
+# 配置SSL证书
+setup_ssl() {
+    print_info "配置SSL证书..."
+    
+    # 读取.env配置
+    source /opt/s-ui-manager/.env
+    
+    if [[ -z "$CF_EMAIL" || -z "$CF_API_KEY" || -z "$CF_DOMAIN" ]]; then
+        print_warning "未配置Cloudflare API，使用自签名证书"
+        print_info "如需正式证书，请编辑 /opt/s-ui-manager/.env 填入CF_EMAIL、CF_API_KEY、CF_DOMAIN"
+        return
+    fi
+    
+    # 安装acme.sh
+    curl https://get.acme.sh | sh -s email=$CF_EMAIL
+    source ~/.bashrc
+    
+    # 设置Cloudflare API
+    export CF_Email="$CF_EMAIL"
+    export CF_Key="$CF_API_KEY"
+    
+    # 申请证书
+    ~/.acme.sh/acme.sh --issue --dns dns_cf -d "$CF_DOMAIN" -d "*.$CF_DOMAIN"
+    
+    # 安装证书到S-UI
+    ~/.acme.sh/acme.sh --install-cert -d "$CF_DOMAIN" \
+        --key-file /usr/local/s-ui/bin/cert/key.pem \
+        --fullchain-file /usr/local/s-ui/bin/cert/cert.pem \
+        --reloadcmd "systemctl restart s-ui"
+    
+    print_success "SSL证书申请完成"
+}
+
 # 配置CDN监控
 setup_cdn_monitor() {
     print_info "配置CDN监控..."
@@ -76,6 +109,11 @@ setup_cdn_monitor() {
 SERVER_IP=YOUR_SERVER_IP
 SERVER_DB_PATH=/usr/local/s-ui/db/s-ui.db
 CF_DOMAIN=YOUR_CF_DOMAIN
+
+# Cloudflare API配置（用于自动申请SSL证书）
+CF_EMAIL=你的Cloudflare邮箱
+CF_API_KEY=你的Cloudflare API Key
+CF_ZONE_ID=你的Cloudflare Zone ID
 
 # CDN监控配置
 CDN_MONITOR_INTERVAL=86400
@@ -181,6 +219,7 @@ main() {
     install_sui
     install_python_deps
     setup_cdn_monitor
+    setup_ssl
     create_service
     setup_cron
     
