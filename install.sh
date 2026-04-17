@@ -100,12 +100,11 @@ install_bbr_fq_cake() {
     # 设置FQ为默认队列规则
     sysctl -w net.core.default_qdisc=fq
     
-    # 配置CAKE队列规则
+    # 配置CAKE队列规则（如果支持）
     tc qdisc replace dev $NIC root cake bandwidth 1000mbit flowmode triple-isolate 2>/dev/null || true
     
-    # 优化BBR参数
-    sysctl -w net.ipv4.tcp_bbr_min_rtt_win_sec=60
-    sysctl -w net.ipv4.tcp_slow_start_after_idle=0
+    # 优化BBR参数（兼容不同内核版本）
+    sysctl -w net.ipv4.tcp_slow_start_after_idle=0 2>/dev/null || true
     
     # 保存配置
     cat >> /etc/sysctl.conf << 'EOF'
@@ -113,7 +112,6 @@ install_bbr_fq_cake() {
 # BBR + FQ + CAKE 三合一加速配置
 net.ipv4.tcp_congestion_control=bbr
 net.core.default_qdisc=fq
-net.ipv4.tcp_bbr_min_rtt_win_sec=60
 net.ipv4.tcp_slow_start_after_idle=0
 EOF
     
