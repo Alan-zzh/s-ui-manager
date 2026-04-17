@@ -249,7 +249,6 @@ setup_cdn_monitor() {
     
     # 创建目录
     mkdir -p /opt/s-ui-manager
-    mkdir -p /opt/s-ui-manager/sub
     cd /opt/s-ui-manager
     
     # 下载脚本
@@ -264,93 +263,12 @@ SERVER_IP=$(curl -s ifconfig.me)
 SERVER_DB_PATH=/usr/local/s-ui/db/s-ui.db
 CF_DOMAIN=$DOMAIN
 
-# 订阅配置
-USE_HTTPS=true
-SUB_DOMAIN=$DOMAIN
-
 # CDN监控配置
 CDN_MONITOR_INTERVAL=86400
 CDN_IP_URL=https://api.uouin.com/cloudflare.html
 EOF
     
     print_success "CDN监控配置完成"
-}
-
-# 配置Nginx提供订阅服务
-setup_nginx() {
-    print_info "配置Nginx订阅服务..."
-    
-    # 安装Nginx
-    if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
-        apt install -y nginx
-    elif [[ "$OS" == "centos" || "$OS" == "almalinux" || "$OS" == "rocky" ]]; then
-        yum install -y nginx
-    fi
-    
-    # 创建Nginx配置
-    cat > /etc/nginx/conf.d/s-ui-subscription.conf << EOF
-server {
-    listen 80;
-    listen 443 ssl;
-    server_name $DOMAIN;
-    
-    # SSL证书
-    ssl_certificate /usr/local/s-ui/bin/cert/cert.pem;
-    ssl_certificate_key /usr/local/s-ui/bin/cert/key.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    
-    # 订阅服务
-    location /sub/ {
-        alias /opt/s-ui-manager/sub/;
-        autoindex on;
-        add_header Content-Type text/plain;
-        add_header Access-Control-Allow-Origin *;
-    }
-    
-    location /sub-json/ {
-        alias /opt/s-ui-manager/sub/;
-        autoindex on;
-        add_header Content-Type application/json;
-        add_header Access-Control-Allow-Origin *;
-    }
-    
-    # CDN监控API
-    location /api/ {
-        proxy_pass http://127.0.0.1:8080/;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-}
-EOF
-    
-    # 测试并重启Nginx
-    nginx -t && systemctl restart nginx
-    
-    print_success "Nginx订阅服务配置完成"
-}
-
-# 创建订阅生成定时任务
-setup_subscription_cron() {
-    print_info "配置订阅生成定时任务..."
-    
-    # 创建订阅生成脚本
-    cat > /opt/s-ui-manager/generate_sub.sh << 'EOF'
-#!/bin/bash
-cd /opt/s-ui-manager
-python3 subscription_generator.py base64 > /opt/s-ui-manager/sub/sub_base64.txt
-python3 subscription_generator.py json > /opt/s-ui-manager/sub/sub_json.json
-EOF
-    
-    chmod +x /opt/s-ui-manager/generate_sub.sh
-    
-    # 添加到cron（每5分钟更新一次）
-    (crontab -l 2>/dev/null; echo "*/5 * * * * /opt/s-ui-manager/generate_sub.sh >> /var/log/sub-gen.log 2>&1") | crontab -
-    
-    # 立即执行一次
-    /opt/s-ui-manager/generate_sub.sh
-    
-    print_success "订阅生成定时任务已配置"
 }
 
 # 创建systemd服务
@@ -448,8 +366,6 @@ main() {
     install_python_deps
     setup_ssl
     setup_cdn_monitor
-    setup_nginx
-    setup_subscription_cron
     create_service
     setup_cron
     

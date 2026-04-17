@@ -4,7 +4,7 @@
 
 ## 版本信息
 
-- **当前版本**: v2.0.0
+- **当前版本**: v2.2.0
 - **最后更新**: 2026-04-18
 - **作者**: Alan
 
@@ -26,11 +26,23 @@ bash <(curl -sL https://raw.githubusercontent.com/Alan-zzh/s-ui-manager/master/i
 - ✅ 防火墙自动配置
 - ✅ S-UI面板自动安装
 - ✅ SSL证书自动申请（Cloudflare API）
-- ✅ CDN监控自动配置
+- ✅ CDN监控自动配置（每小时自动更新优选IP）
 - ✅ systemd服务自动创建
-- ✅ 定时任务自动创建（每天凌晨3点）
+- ✅ 定时任务自动创建
 
 ## 更新日志
+
+### v2.2.0 (2026-04-18)
+
+**架构调整**
+- 确认使用独立订阅服务方案（方案B）
+- S-UI面板负责节点管理，独立订阅服务负责优选IP替换
+- 两者互不干扰，面板永不故障
+
+**配置优化**
+- CDN监控间隔调整为1小时（3600秒）
+- 优选IP自动保存到数据库cdn_settings表
+- 订阅生成器读取优选IP生成最终订阅
 
 ### v2.1.0 (2026-04-18)
 
@@ -76,6 +88,25 @@ bash <(curl -sL https://raw.githubusercontent.com/Alan-zzh/s-ui-manager/master/i
 
 ## 技术架构
 
+### 完整工作流程
+
+```
+第一步：安装S-UI面板
+  └── 配置节点（VLESS-Reality、VLESS-WS、Trojan-WS、Hysteria2）
+  └── 配置TLS/Reality证书
+  └── 创建用户
+
+第二步：CDN监控自动运行（后台）
+  └── 每小时从网站获取优选IP
+  └── 保存到数据库（cdn_settings表）
+  └── 每天自动更新
+
+第三步：订阅生成（独立服务）
+  └── 读取S-UI面板的节点配置
+  └── 读取CDN监控的优选IP
+  └── 生成订阅链接（用优选IP替换原地址）
+```
+
 ### 网络加速方案
 
 | 组件 | 作用 | 配置 |
@@ -90,6 +121,39 @@ bash <(curl -sL https://raw.githubusercontent.com/Alan-zzh/s-ui-manager/master/i
 - 文件描述符限制优化（65535）
 - 进程数限制优化（65535）
 - 防火墙端口开放（22, 80, 443, 6868）
+
+## 开发历史
+
+### 调试记录
+
+1. **CDN监控模块开发**
+   - 从网站获取优选IP排名
+   - 自动分配不同IP给VLESS-WS和Trojan-WS
+   - 保存到数据库供订阅生成使用
+
+2. **订阅生成器开发**
+   - 读取S-UI数据库节点配置
+   - 读取CDN监控优选IP
+   - 生成Base64/JSON订阅链接
+   - 支持域名/IP自动切换
+
+3. **系统优化集成**
+   - BBR + FQ + CAKE三合一加速
+   - TCP参数优化
+   - 系统限制优化
+   - 防火墙自动配置
+
+4. **SSL证书自动申请**
+   - 使用Cloudflare API
+   - acme.sh自动申请
+   - 证书自动续期
+
+### 常见问题修复
+
+- 修复Reality协议解析错误
+- 修复Hysteria2 JSON解析错误
+- 修复Windows GBK编码问题
+- 修复数据库字段不匹配问题
 
 ## 常见问题
 
@@ -106,6 +170,16 @@ bash <(curl -sL https://raw.githubusercontent.com/Alan-zzh/s-ui-manager/master/i
 ```bash
 systemctl status s-ui-cdn-monitor
 journalctl -u s-ui-cdn-monitor -f
+```
+
+### 4. 优选IP未更新？
+
+```bash
+# 查看CDN监控日志
+cat /var/log/cdn-monitor.log
+
+# 手动运行一次
+cd /opt/s-ui-manager && python3 cdn_monitor.py
 ```
 
 ## 开发者
