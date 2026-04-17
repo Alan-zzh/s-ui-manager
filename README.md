@@ -32,6 +32,17 @@ bash <(curl -sL https://raw.githubusercontent.com/Alan-zzh/s-ui-manager/master/i
 
 ## 更新日志
 
+### v2.1.0 (2026-04-18)
+
+**新增**
+- 订阅链接支持域名/IP自动切换
+- 支持HTTP/HTTPS协议订阅
+- Windows环境编码兼容性修复
+
+**修复**
+- 修复订阅链接只能使用域名的问题
+- 修复Windows系统下Emoji字符显示异常
+
 ### v2.0.0 (2026-04-18)
 
 **新增**
@@ -120,6 +131,7 @@ journalctl -u s-ui-cdn-monitor -f
 
 - **Base64订阅**: `https://你的域名/sub/编码字符串`
 - **JSON订阅**: `https://你的域名/sub-json/编码字符串`
+- **IP订阅**: `https://服务器IP/sub/编码字符串`
 
 ### 配置项
 
@@ -127,5 +139,11 @@ journalctl -u s-ui-cdn-monitor -f
 
 ```bash
 USE_HTTPS=true          # 是否使用HTTPS（默认true）
-SUB_DOMAIN=你的域名     # 订阅使用的域名
+SUB_DOMAIN=你的域名     # 订阅使用的域名（留空则使用服务器IP）
 ```
+
+### 智能切换逻辑
+
+- 配置了域名 → 使用域名
+- 没配置域名 → 使用服务器IP
+- HTTP/HTTPS 都支持

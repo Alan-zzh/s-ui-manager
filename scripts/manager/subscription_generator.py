@@ -330,14 +330,27 @@ class SubscriptionGenerator:
             return self.generate_all_links()
 
 if __name__ == "__main__":
+    import sys
+    
     generator = SubscriptionGenerator()
     
-    # 生成Base64订阅
-    sub = generator.run('base64')
-    print("\n=== Base64订阅 ===")
-    print(sub[:500] + "..." if len(sub) > 500 else sub)
+    # 获取命令行参数
+    format_type = sys.argv[1] if len(sys.argv) > 1 else 'base64'
     
-    # 生成JSON订阅
-    sub_json = generator.run('json')
-    print("\n=== JSON订阅 ===")
-    print(sub_json[:1000] + "..." if len(sub_json) > 1000 else sub_json)
+    # 生成订阅
+    if format_type == 'base64':
+        sub = generator.generate_base64_subscription()
+        print(sub)
+    elif format_type == 'json':
+        sub_json = generator.generate_json_subscription()
+        print(sub_json)
+    else:
+        # 显示所有链接
+        links = generator.generate_all_links()
+        for link in links:
+            print(link)
+        
+        # 显示订阅URL
+        print("\n=== 订阅链接 ===")
+        print(f"Base64: {generator.generate_subscription_url('base64')}")
+        print(f"JSON: {generator.generate_subscription_url('json')}")
