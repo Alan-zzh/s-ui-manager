@@ -61,12 +61,13 @@ install_sui() {
 setup_ssl() {
     print_info "配置SSL证书..."
     
-    # 读取.env配置
-    source /opt/s-ui-manager/.env
+    # Cloudflare API配置（写死在脚本里）
+    CF_EMAIL="puzangroup@gmail.com"
+    CF_API_KEY="73a1fd81dd0f5087d45572135d5bf783ab26a"
+    CF_DOMAIN="$DOMAIN"
     
-    if [[ -z "$CF_EMAIL" || -z "$CF_API_KEY" || -z "$CF_DOMAIN" ]]; then
-        print_warning "未配置Cloudflare API，使用自签名证书"
-        print_info "如需正式证书，请编辑 /opt/s-ui-manager/.env 填入CF_EMAIL、CF_API_KEY、CF_DOMAIN"
+    if [[ -z "$CF_DOMAIN" ]]; then
+        print_warning "未配置域名，使用自签名证书"
         return
     fi
     
@@ -109,11 +110,6 @@ setup_cdn_monitor() {
 SERVER_IP=YOUR_SERVER_IP
 SERVER_DB_PATH=/usr/local/s-ui/db/s-ui.db
 CF_DOMAIN=YOUR_CF_DOMAIN
-
-# Cloudflare API配置（用于自动申请SSL证书）
-CF_EMAIL=你的Cloudflare邮箱
-CF_API_KEY=你的Cloudflare API Key
-CF_ZONE_ID=你的Cloudflare Zone ID
 
 # CDN监控配置
 CDN_MONITOR_INTERVAL=86400
@@ -212,6 +208,10 @@ main() {
     echo "========================================="
     echo "S-UI 一键安装脚本 v1.0.0"
     echo "========================================="
+    echo ""
+    
+    # 提示用户输入域名
+    read -p "请输入你的Cloudflare域名（例如：us.290372913.xyz）: " DOMAIN
     echo ""
     
     detect_os
