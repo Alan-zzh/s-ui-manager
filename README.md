@@ -1,127 +1,131 @@
-# S-UI 自动化配置系统
+# S-UI 一键安装系统
 
-> S-UI 1.3.6 服务器管理面板自动化配置工具
+> S-UI 服务器管理面板自动化配置工具
 
 ## 版本信息
 
-- **当前版本**: v1.1.0
-- **最后更新**: 2026-04-17
-- **S-UI版本**: 1.3.6
-- **VPS地址**: 43.159.168.175
+- **当前版本**: v2.0.0
+- **最后更新**: 2026-04-18
+- **作者**: Alan
 
 ## 快速开始
 
-### 1. 配置VPS
-
-SSH登录VPS后，执行以下脚本：
+### 一键安装
 
 ```bash
-ssh root@43.159.168.175
-# 复制 scripts/setup/setup_vps_final.sh 的内容粘贴执行
+bash <(curl -sL https://raw.githubusercontent.com/Alan-zzh/s-ui-manager/master/install.sh)
 ```
 
-### 2. 验证配置
+### 功能特性
+
+- ✅ 自动切换root权限
+- ✅ 系统源更新 + 系统包更新
+- ✅ BBR + FQ + CAKE三合一网络加速
+- ✅ TCP参数优化
+- ✅ 系统限制优化
+- ✅ 防火墙自动配置
+- ✅ S-UI面板自动安装
+- ✅ SSL证书自动申请（Cloudflare API）
+- ✅ CDN监控自动配置
+- ✅ systemd服务自动创建
+- ✅ 定时任务自动创建（每天凌晨3点）
+
+## 更新日志
+
+### v2.0.0 (2026-04-18)
+
+**新增**
+- 合并系统优化和面板安装为单一脚本
+- 自动切换root权限功能
+- BBR + FQ + CAKE三合一网络加速
+- TCP参数优化（高延迟环境适配）
+- 系统限制优化（文件描述符、进程数）
+- 防火墙自动配置
+- SSL证书自动申请（Cloudflare API集成）
+- CDN监控服务自动部署
+- systemd服务自动创建
+- 定时任务自动创建
+
+**修复**
+- 修复敏感信息泄露问题（API密钥写死在脚本中）
+- 修复GitHub仓库历史记录包含敏感信息
+- 修复CDN监控模块依赖问题
+
+**优化**
+- 优化脚本执行顺序（系统优化 → 面板安装 → 证书配置 → 监控部署）
+- 优化错误提示信息
+- 优化日志输出格式
+
+### v1.0.0 (2026-04-17)
+
+**初始版本**
+- 基础S-UI面板安装
+- CDN监控模块
+- 订阅生成功能
+
+## 技术架构
+
+### 网络加速方案
+
+| 组件 | 作用 | 配置 |
+|------|------|------|
+| **BBR** | 智能调节发送速率 | `net.ipv4.tcp_congestion_control=bbr` |
+| **FQ** | 公平分配带宽 | `net.core.default_qdisc=fq` |
+| **CAKE** | 主动队列管理，集成FQ+PIE | `tc qdisc replace dev eth0 root cake` |
+
+### 系统优化
+
+- TCP缓冲区优化（应对高延迟）
+- 文件描述符限制优化（65535）
+- 进程数限制优化（65535）
+- 防火墙端口开放（22, 80, 443, 6868）
+
+## 常见问题
+
+### 1. 脚本运行失败？
+
+确保使用root用户运行，或脚本会自动切换权限。
+
+### 2. SSL证书申请失败？
+
+检查Cloudflare API配置是否正确。
+
+### 3. CDN监控服务未启动？
 
 ```bash
-# 检查服务状态
-systemctl is-active s-ui
-
-# 检查端口监听
-ss -tlnp | grep -E '4431|4432|10001|10002'
-
-# 测试订阅
-curl -sk 'https://127.0.0.1:4432/sub/default?format=json'
+systemctl status s-ui-cdn-monitor
+journalctl -u s-ui-cdn-monitor -f
 ```
-
-### 3. 访问面板
-
-- **面板地址**: https://43.159.168.175:4431
-- **订阅地址**: https://43.159.168.175:4432/sub/default
-
-## 项目结构
-
-```
-S-ui/
-├── config/                  # 配置文件
-│   ├── settings.json       # 主配置
-│   ├── config.env          # 环境变量
-│   └── solutions.json      # 解决方案索引（重要！）
-├── scripts/                 # 可执行脚本
-│   ├── setup/              # 安装配置（5个）
-│   ├── check/              # 检查诊断（5个）
-│   ├── fix/                # 修复脚本（5个）
-│   └── test/               # 测试脚本（3个）
-├── modules/                 # 功能模块（12个）
-├── results/                 # 运行结果
-│   └── outputs/            # 输出文件
-├── certs/                   # SSL证书
-├── database/                # SQLite数据库
-├── docs/                    # 文档
-│   ├── README.md           # 项目说明
-│   ├── CHANGELOG.md        # 更新日志
-│   ├── BUGS.md             # BUG记录
-│   ├── SOLUTIONS.md        # 解决方案
-│   ├── NAMING_CONVENTIONS.md # 命名规则
-│   └── VERSION_PROTOCOL.md # 版本协议
-└── organize.ps1             # 整理脚本
-```
-
-## 配置参数
-
-### 协议配置
-
-| 协议 | 端口 | 密码/UUID | 特性 |
-|------|------|-----------|------|
-| VLESS | 10001 | a1b2c3d4-e5f6-7890-abcd-ef1234567890 | TLS |
-| Trojan | 10002 | TrojanP@ss2024 | TLS |
-| Hysteria2 | 10003 | Hy2P@ss2024 | 混淆+端口跳跃 |
-
-### 用户信息
-
-- **用户名**: puzan
-- **描述**: 美国线路
-- **流量限制**: 无
-- **过期时间**: 永久
-
-## 文档导航
-
-| 文档 | 说明 |
-|------|------|
-| [CHANGELOG.md](docs/CHANGELOG.md) | 版本更新历史 |
-| [BUGS.md](docs/BUGS.md) | BUG记录与修复 |
-| [SOLUTIONS.md](docs/SOLUTIONS.md) | 解决方案详情 |
-| [NAMING_CONVENTIONS.md](docs/NAMING_CONVENTIONS.md) | 命名规则 |
-| [VERSION_PROTOCOL.md](docs/VERSION_PROTOCOL.md) | 版本更新协议 |
-| [ORGANIZATION_REPORT.md](docs/ORGANIZATION_REPORT.md) | 目录整理报告 |
-
-## 已知问题
-
-- ⚠️ Raw格式订阅返回0字节（JSON/Clash正常）
-- ℹ️ IDE报Git分支错误（可忽略，不影响运行）
-
-## 维护说明
-
-### 添加新脚本
-
-1. 按功能分类放入 `scripts/` 子目录
-2. 遵循命名规范（见 NAMING_CONVENTIONS.md）
-3. 添加文件头部注释
-
-### 更新文档
-
-1. 修复BUG → 更新 BUGS.md
-2. 新增方案 → 更新 SOLUTIONS.md
-3. 任何变更 → 更新 CHANGELOG.md
-4. 状态变更 → 更新 solutions.json
-
-### 清理规则
-
-- 新脚本验证成功后，删除旧版本
-- 结果文件定期清理或归档
-- 保持scripts目录精简
 
 ## 开发者
 
 - **作者**: Alan
 - **项目开始**: 2026-04-15
-- **最后维护**: 2026-04-17
+- **最后维护**: 2026-04-18
+
+## 节点配置说明
+
+> 所有节点端口均从S-UI数据库自动读取，无需手动配置
+
+| 协议 | 连接方式 | CDN | 端口 |
+|------|---------|-----|------|
+| **VLESS+Reality** | 直连 | 无 | 自动读取 |
+| **VLESS-WS** | CDN | 优选IP | 443 |
+| **Trojan-WS** | CDN | 优选IP | 443 |
+| **Hysteria2** | 直连 | 无 | 自动读取 |
+
+## 订阅功能
+
+### 订阅链接格式
+
+- **Base64订阅**: `https://你的域名/sub/编码字符串`
+- **JSON订阅**: `https://你的域名/sub-json/编码字符串`
+
+### 配置项
+
+在 `.env` 文件中配置：
+
+```bash
+USE_HTTPS=true          # 是否使用HTTPS（默认true）
+SUB_DOMAIN=你的域名     # 订阅使用的域名
+```

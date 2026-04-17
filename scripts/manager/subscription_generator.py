@@ -9,8 +9,15 @@ import sqlite3
 import base64
 import os
 import urllib.parse
+import sys
 from datetime import datetime
 from dotenv import load_dotenv
+
+# 设置UTF-8编码输出（解决Windows GBK编码问题）
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 load_dotenv()
 
@@ -21,6 +28,8 @@ class SubscriptionGenerator:
         self.cf_domain = os.getenv('CF_DOMAIN', 'YOUR_CF_DOMAIN')
         self.vless_cdn_ip = None
         self.trojan_cdn_ip = None
+        self.use_https = os.getenv('USE_HTTPS', 'true').lower() == 'true'
+        self.sub_domain = os.getenv('SUB_DOMAIN', self.cf_domain)  # 订阅使用的域名
         
     def get_cdn_ips(self):
         """从数据库获取VLESS和Trojan的优选IP"""
@@ -282,6 +291,26 @@ class SubscriptionGenerator:
         """生成JSON订阅"""
         links = self.generate_all_links()
         return json.dumps({'links': links}, ensure_ascii=False, indent=2)
+    
+    def generate_subscription_url(self, format='base64'):
+        """生成订阅链接（支持域名/IP自动切换）"""
+        protocol = 'https' if self.use_https else 'http'
+        port = 443 if self.use_https else 80
+        
+        # 优先使用订阅域名，没有则使用服务器IP
+        host = self.sub_domain if self.sub_domain and self.sub_domain != 'YOUR_CF_DOMAIN' else self.server_ip
+        
+        # 处理端口显示
+        if (protocol == 'https' and port == 443) or (protocol == 'http' and port == 80):
+            port_str = ''
+        else:
+            port_str = f":{port}"
+        
+        if format == 'base64':
+            return f"{protocol}://{host}{port_str}/sub/{base64.b64encode(self.cf_domain.encode()).decode()}"
+        elif format == 'json':
+            return f"{protocol}://{host}{port_str}/sub-json/{base64.b64encode(self.cf_domain.encode()).decode()}"
+        return ""
     
     def run(self, format='base64'):
         """运行订阅生成"""
