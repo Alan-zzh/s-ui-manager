@@ -1,9 +1,10 @@
 #!/bin/bash
 # =============================================================
-# 系统优化脚本 - BBR Plus加速 + 系统优化
-# 版本: v1.0.0
+# 系统优化脚本 - BBR + FQ + CAKE三合一加速 + 系统优化
+# 版本: v2.0.0
 # 作者: Alan
-# 功能: 安装BBR Plus加速，优化系统网络性能，免重启生效
+# 功能: 安装BBR+FQ+CAKE三合一加速，优化系统网络性能，免重启生效
+# 适用: 海外连接且存在丢包问题的代理服务器
 # =============================================================
 
 set -e
@@ -27,8 +28,8 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 echo "========================================="
-echo "系统优化脚本 v1.0.0"
-echo "BBR Plus加速 + 系统优化"
+echo "系统优化脚本 v2.0.0"
+echo "BBR + FQ + CAKE三合一加速 + 系统优化"
 echo "========================================="
 echo ""
 
@@ -45,25 +46,91 @@ detect_os() {
     print_info "检测到系统: $OS $VER"
 }
 
-# 安装BBR Plus加速
-install_bbr_plus() {
-    print_info "安装BBR Plus加速..."
+# 第一步：更新系统源
+update_sources() {
+    print_info "更新系统源..."
     
-    # 下载BBR Plus内核模块
-    curl -sL https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh -o /tmp/tcp.sh
-    chmod +x /tmp/tcp.sh
+    if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
+        apt update
+    elif [[ "$OS" == "centos" || "$OS" == "almalinux" || "$OS" == "rocky" ]]; then
+        yum makecache
+    fi
     
-    # 自动选择BBR Plus并安装
-    echo "14" | /tmp/tcp.sh
+    print_success "系统源更新完成"
+}
+
+# 第二步：更新系统包
+update_system() {
+    print_info "更新系统包..."
     
-    # 启用BBR Plus
-    sysctl -w net.core.default_qdisc=fq
+    if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
+        apt upgrade -y
+    elif [[ "$OS" == "centos" || "$OS" == "almalinux" || "$OS" == "rocky" ]]; then
+        yum update -y
+    fi
+    
+    print_success "系统包更新完成"
+}
+
+# 第三步：安装必要依赖
+install_dependencies() {
+    print_info "安装必要依赖..."
+    
+    if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
+        apt install -y curl wget git jq iproute2
+    elif [[ "$OS" == "centos" || "$OS" == "almalinux" || "$OS" == "rocky" ]]; then
+        yum install -y curl wget git jq iproute
+    fi
+    
+    print_success "依赖安装完成"
+}
+
+# 第四步：配置BBR + FQ + CAKE三合一加速
+install_bbr_fq_cake() {
+    print_info "配置BBR + FQ + CAKE三合一加速..."
+    
+    # 获取网卡名称
+    NIC=$(ip route | grep default | awk '{print $5}' | head -n1)
+    if [[ -z "$NIC" ]]; then
+        NIC="eth0"
+    fi
+    print_info "检测到网卡: $NIC"
+    
+    # 启用BBR拥塞控制
     sysctl -w net.ipv4.tcp_congestion_control=bbr
-    sysctl -w net.ipv4.tcp_congestion_control=bbr_plus 2>/dev/null || true
     
-    # 应用优化参数（免重启）
+    # 设置FQ为默认队列规则（必须与BBR配合）
+    sysctl -w net.core.default_qdisc=fq
+    
+    # 配置CAKE队列规则（集成FQ和PIE功能）
+    tc qdisc replace dev $NIC root cake bandwidth 1000mbit flowmode triple-isolate
+    
+    # 优化BBR参数（针对高丢包环境）
+    sysctl -w net.ipv4.tcp_bbr_min_rtt_win_sec=60
+    sysctl -w net.ipv4.tcp_slow_start_after_idle=0
+    
+    # 保存配置到sysctl.conf（重启后依然生效）
+    cat >> /etc/sysctl.conf << 'EOF'
+
+# BBR + FQ + CAKE 三合一加速配置
+net.ipv4.tcp_congestion_control=bbr
+net.core.default_qdisc=fq
+net.ipv4.tcp_bbr_min_rtt_win_sec=60
+net.ipv4.tcp_slow_start_after_idle=0
+EOF
+    
+    print_success "BBR + FQ + CAKE三合一加速配置完成（已免重启生效）"
+}
+
+# 第五步：优化TCP参数
+optimize_tcp() {
+    print_info "优化TCP参数..."
+    
+    # 增加TCP缓冲区大小（应对高延迟）
     sysctl -w net.ipv4.tcp_rmem="4096 87380 67108864"
     sysctl -w net.ipv4.tcp_wmem="4096 65536 67108864"
+    
+    # 优化TCP连接参数
     sysctl -w net.ipv4.tcp_max_tw_buckets=65536
     sysctl -w net.ipv4.tcp_tw_reuse=1
     sysctl -w net.ipv4.tcp_fin_timeout=15
@@ -75,12 +142,10 @@ install_bbr_plus() {
     sysctl -w net.core.netdev_max_backlog=65535
     sysctl -w net.ipv4.tcp_max_syn_backlog=65535
     
-    # 保存配置到sysctl.conf（重启后依然生效）
+    # 保存配置到sysctl.conf
     cat >> /etc/sysctl.conf << 'EOF'
 
-# BBR Plus 优化配置
-net.core.default_qdisc=fq
-net.ipv4.tcp_congestion_control=bbr_plus
+# TCP参数优化
 net.ipv4.tcp_rmem=4096 87380 67108864
 net.ipv4.tcp_wmem=4096 65536 67108864
 net.ipv4.tcp_max_tw_buckets=65536
@@ -95,11 +160,11 @@ net.core.netdev_max_backlog=65535
 net.ipv4.tcp_max_syn_backlog=65535
 EOF
     
-    print_success "BBR Plus加速安装完成（已免重启生效）"
+    print_success "TCP参数优化完成"
 }
 
-# 优化系统限制
-optimize_system() {
+# 第六步：优化系统限制
+optimize_system_limits() {
     print_info "优化系统限制..."
     
     # 优化文件描述符限制
@@ -125,9 +190,9 @@ EOF
     print_success "系统限制优化完成"
 }
 
-# 优化防火墙
-optimize_firewall() {
-    print_info "优化防火墙配置..."
+# 第七步：配置防火墙
+configure_firewall() {
+    print_info "配置防火墙..."
     
     # 开放必要端口
     if command -v ufw &> /dev/null; then
@@ -159,6 +224,13 @@ verify_optimization() {
     BBR_STATUS=$(sysctl net.ipv4.tcp_congestion_control | awk '{print $3}')
     echo "BBR状态: $BBR_STATUS"
     
+    # 检查队列规则
+    NIC=$(ip route | grep default | awk '{print $5}' | head -n1)
+    if [[ -z "$NIC" ]]; then
+        NIC="eth0"
+    fi
+    echo "队列规则: $(tc qdisc show dev $NIC | head -n1)"
+    
     # 检查文件描述符
     echo "文件描述符限制: $(ulimit -n)"
     
@@ -175,9 +247,13 @@ verify_optimization() {
 # 主函数
 main() {
     detect_os
-    install_bbr_plus
-    optimize_system
-    optimize_firewall
+    update_sources
+    update_system
+    install_dependencies
+    install_bbr_fq_cake
+    optimize_tcp
+    optimize_system_limits
+    configure_firewall
     verify_optimization
 }
 
