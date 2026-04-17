@@ -1,13 +1,14 @@
 #!/bin/bash
 # =============================================================
 # S-UI 一键安装脚本（含系统优化）
-# 版本: v2.0.0
+# 版本: v2.2.1
 # 作者: Alan
 # 功能: 自动优化系统 + 安装S-UI面板 + 配置SSL证书 + CDN监控
 # 使用方法: bash <(curl -sL https://raw.githubusercontent.com/Alan-zzh/s-ui-manager/master/install.sh)
 # =============================================================
 
-set -e
+# 注意：不使用 set -e，确保脚本在部分命令失败时继续执行
+# set -e
 
 # 颜色定义
 RED='\033[0;31m'
@@ -94,14 +95,14 @@ install_bbr_fq_cake() {
     fi
     print_info "检测到网卡: $NIC"
     
-    # 启用BBR拥塞控制
-    sysctl -w net.ipv4.tcp_congestion_control=bbr
+    # 启用BBR拥塞控制（兼容不同内核）
+    sysctl -w net.ipv4.tcp_congestion_control=bbr 2>/dev/null || print_info "BBR已启用或不支持"
     
     # 设置FQ为默认队列规则
-    sysctl -w net.core.default_qdisc=fq
+    sysctl -w net.core.default_qdisc=fq 2>/dev/null || print_info "FQ已设置或不支持"
     
     # 配置CAKE队列规则（如果支持）
-    tc qdisc replace dev $NIC root cake bandwidth 1000mbit flowmode triple-isolate 2>/dev/null || true
+    tc qdisc replace dev $NIC root cake bandwidth 1000mbit flowmode triple-isolate 2>/dev/null || print_info "CAKE不支持，使用FQ"
     
     # 优化BBR参数（兼容不同内核版本）
     sysctl -w net.ipv4.tcp_slow_start_after_idle=0 2>/dev/null || true
@@ -122,18 +123,19 @@ EOF
 optimize_tcp() {
     print_info "优化TCP参数..."
     
-    sysctl -w net.ipv4.tcp_rmem="4096 87380 67108864"
-    sysctl -w net.ipv4.tcp_wmem="4096 65536 67108864"
-    sysctl -w net.ipv4.tcp_max_tw_buckets=65536
-    sysctl -w net.ipv4.tcp_tw_reuse=1
-    sysctl -w net.ipv4.tcp_fin_timeout=15
-    sysctl -w net.ipv4.tcp_keepalive_time=600
-    sysctl -w net.ipv4.tcp_keepalive_probes=5
-    sysctl -w net.ipv4.tcp_keepalive_intvl=15
-    sysctl -w net.ipv4.ip_local_port_range="1024 65535"
-    sysctl -w net.core.somaxconn=65535
-    sysctl -w net.core.netdev_max_backlog=65535
-    sysctl -w net.ipv4.tcp_max_syn_backlog=65535
+    # 所有参数添加错误处理，确保不中断
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 67108864" 2>/dev/null || true
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 67108864" 2>/dev/null || true
+    sysctl -w net.ipv4.tcp_max_tw_buckets=65536 2>/dev/null || true
+    sysctl -w net.ipv4.tcp_tw_reuse=1 2>/dev/null || true
+    sysctl -w net.ipv4.tcp_fin_timeout=15 2>/dev/null || true
+    sysctl -w net.ipv4.tcp_keepalive_time=600 2>/dev/null || true
+    sysctl -w net.ipv4.tcp_keepalive_probes=5 2>/dev/null || true
+    sysctl -w net.ipv4.tcp_keepalive_intvl=15 2>/dev/null || true
+    sysctl -w net.ipv4.ip_local_port_range="1024 65535" 2>/dev/null || true
+    sysctl -w net.core.somaxconn=65535 2>/dev/null || true
+    sysctl -w net.core.netdev_max_backlog=65535 2>/dev/null || true
+    sysctl -w net.ipv4.tcp_max_syn_backlog=65535 2>/dev/null || true
     
     cat >> /etc/sysctl.conf << 'EOF'
 
@@ -173,8 +175,8 @@ DefaultLimitNOFILE=65535
 DefaultLimitNPROC=65535
 EOF
     
-    ulimit -n 65535
-    ulimit -u 65535
+    ulimit -n 65535 2>/dev/null || true
+    ulimit -u 65535 2>/dev/null || true
     
     print_success "系统限制优化完成"
 }
