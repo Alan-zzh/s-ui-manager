@@ -1,0 +1,227 @@
+============================================================
+        S-UI v1.4.1 全自动配置项目 - Bug文档与说明
+============================================================
+
+【项目概述】
+- 目标：全自动配置S-UI面板v1.4.1，无需人工干预
+- 服务器：AWS EC2（日本区）
+- S-UI版本：v1.4.1
+- 数据库：SQLite（/usr/local/s-ui/db/s-ui.db）
+- 核心：Sing-Box v1.13.4
+
+【需求说明】
+1. 配置4个入站规则：
+   - VLESS Reality（端口443）
+   - VLESS WS（端口8443，需套CDN）
+   - Trojan WS（端口8444，需套CDN）
+   - Hysteria2（端口4433，需端口跳跃）
+
+2. 客户端要求：
+   - 名称用英文（JP、US等，不能用中文会乱码）
+   - 描述固定为"puzan"
+   - 4个客户端对应4个协议
+
+3. 技术要求：
+   - Reality使用面板生成的X25519密钥对
+   - TLS使用自签名证书
+   - 订阅链接可正常访问
+   - 面板可正常登录
+
+============================================================
+                    Bug记录与修复过程
+============================================================
+
+【Bug 1】GORM Scan错误
+- 错误信息：sql: Scan error on column index 6, name 'options': 
+  unsupported Scan, storing driver.Value type string into type *json.RawMessage
+- 原因：options列是TEXT类型，但S-UI期望BLOB类型
+- 修复：将所有inbounds的options列从TEXT转为BLOB
+- 状态：✅ 已修复
+
+【Bug 2】Hysteria2 TLS required
+- 错误信息：hysteria2 TLS required
+- 原因：Hysteria2配置没有启用TLS
+- 修复：创建专用TLS配置（HY2-TLS），启用TLS并设置server_name
+- 状态：✅ 已修复
+
+【Bug 3】数据库路径错误
+- 错误信息：unable to open database "/etc/x-ui/x-ui.db"
+- 原因：S-UI的数据库路径是/usr/local/s-ui/db/s-ui.db，不是x-ui的路径
+- 修复：修改所有脚本中的数据库路径
+- 状态：✅ 已修复
+
+【Bug 4】UNIQUE constraint failed: inbounds.tag
+- 错误信息：插入入站规则时标签重复
+- 原因：数据库已有旧数据
+- 修复：先DELETE清空inbounds、clients、tls表，再重置sqlite_sequence
+- 状态：✅ 已修复
+
+【Bug 5】JSON反序列化错误
+- 错误信息：json: cannot unmarshal array into Go value of type option.VLESSUser
+- 原因：client config存储为数组格式 {"vless": [{"id": "..."}]}
+- 修复：改为单对象格式 {"vless": {"uuid": "..."}}
+- 状态：✅ 已修复
+
+【Bug 6】VLESS字段名错误
+- 错误信息：inbounds[0].users[0].id: json: unknown field "id"
+- 原因：VLESS协议应该用"uuid"字段，不是"id"
+- 修复：将所有VLESS客户端config中的"id"改为"uuid"
+- 状态：✅ 已修复
+
+【Bug 7】Reality私钥格式错误
+- 错误信息：decode private key: illegal base64 data at input byte 7
+- 原因：Python cryptography库生成的base64格式不匹配sing-box期望的格式
+- 修复：改用OpenSSL生成X25519密钥，提取原始32字节后转为URL-safe base64（无padding）
+- 正确生成命令：openssl genpkey -algorithm x25519 -out private.pem
+- 状态：✅ 已修复
+
+【Bug 8】Trojan缺少证书
+- 错误信息：trojan-ws missing certificate
+- 原因：TLS配置没有指定证书路径
+- 修复：生成自签名证书（openssl req -x509），更新TLS配置的certificate_path和key_path
+- 状态：✅ 已修复
+
+【Bug 9】面板路径404
+- 错误信息：访问/login返回404
+- 原因：S-UI v1.4.1的面板路径是/app/，不是/login
+- 修复：使用正确路径 http://IP:2095/app/
+- 状态：✅ 已修复
+
+【Bug 10】订阅链接404
+- 错误信息：访问/sub返回404
+- 原因：订阅路径是/sub/（末尾有斜杠）
+- 修复：使用正确路径 http://IP:2096/sub/
+- 状态：⚠️ 部分修复（仍返回404，需进一步排查）
+
+============================================================
+                    当前状态（截至2026-04-19）
+============================================================
+
+【正常工作的部分】
+✅ S-UI服务运行中（active）
+✅ 端口监听正常：
+   - 2095（面板）
+   - 2096（订阅）
+   - 443（VLESS Reality）
+   - 8443（VLESS WS）
+   - 8444（Trojan WS）
+   - 4433（Hysteria2 UDP）
+✅ 面板可访问：http://IP:2095/app/
+✅ 登录凭据：admin / admin
+✅ 4个客户端已配置（JP-Reality、JP-WS、JP-Trojan、JP-HY2）
+✅ 3个TLS配置已创建（Reality、TLS、HY2-TLS）
+✅ Reality密钥已生成（使用OpenSSL）
+✅ 自签名证书已生成
+
+【仍存在的问题】
+❌ 订阅链接返回404（http://IP:2096/sub/）
+❌ 入站规则在Python查询中显示为空（但数据库中有4条记录）
+❌ 无法通过订阅同步节点配置
+❌ 无法套用CDN优选IP
+
+【数据库结构】
+表：inbounds
+- id, type, tag, tls_id, addrs(BLOB), out_json(BLOB), options(BLOB)
+
+表：clients
+- id, inbound_id, name, enable, expiry, config(BLOB)
+
+表：tls
+- id, name, server(BLOB), client(BLOB)
+
+表：settings
+- key, value（存储面板配置）
+
+【关键配置值】
+- webPort: 2095
+- webPath: /app/
+- subPort: 2096
+- subPath: /sub/
+- subEncode: true
+- subShowInfo: false
+
+【Reality配置】
+- 伪装域名：yahoo.com
+- 私钥：[已生成，使用OpenSSL X25519]
+- 公钥：[已生成]
+- ShortID：6310952f79334d87
+
+【TLS证书】
+- 证书路径：/usr/local/s-ui/cert/server.crt
+- 私钥路径：/usr/local/s-ui/cert/server.key
+- 证书CN：www.apple.com
+
+============================================================
+                    待解决问题
+============================================================
+
+1. 订阅链接404问题
+   - 路径正确（/sub/）但仍返回404
+   - 可能是订阅服务未正确启动
+   - 需要检查S-UI的订阅服务配置
+
+2. 入站规则显示问题
+   - 数据库中有4条记录
+   - Python查询返回空（可能是BLOB读取问题）
+   - 面板中应该能看到
+
+3. CDN优选IP套用
+   - VLESS WS和Trojan WS需要套Cloudflare CDN
+   - 需要配置优选IP列表
+   - 需要修改客户端出站配置
+
+4. Hysteria2端口跳跃
+   - 需要配置TCP端口跳跃
+   - 可能需要额外配置
+
+============================================================
+                    技术文档参考
+============================================================
+
+【S-UI管理命令】
+- systemctl restart s-ui        # 重启服务
+- systemctl status s-ui         # 查看状态
+- journalctl -u s-ui -f         # 查看日志
+- /usr/local/s-ui/sui admin     # 查看管理员凭据
+- ss -tlnp | grep sui           # 查看端口监听
+
+【数据库操作】
+- sqlite3 /usr/local/s-ui/db/s-ui.db
+- .schema inbounds              # 查看表结构
+- SELECT * FROM inbounds;       # 查看入站规则
+
+【证书生成】
+- openssl req -x509 -nodes -newkey rsa:2048 
+  -keyout server.key -out server.crt -days 3650 -subj "/CN=www.apple.com"
+
+【Reality密钥生成】
+- openssl genpkey -algorithm x25519 -out private.pem
+- openssl pkey -in private.pem -outform DER -out private.der
+- 提取最后32字节作为私钥
+
+============================================================
+                    下一步计划
+============================================================
+
+1. 修复订阅链接404问题
+2. 验证面板中入站规则显示
+3. 配置CDN优选IP
+4. 配置Hysteria2端口跳跃
+5. 测试各协议客户端连接
+6. 制作一键恢复脚本（支持不同IP和地区）
+
+============================================================
+                    项目文件列表
+============================================================
+
+- SUI全自动配置_正确版.py      # 完整数据库配置脚本
+- 修复config格式.py            # 修复client config数组格式
+- 修复VLESS和证书.py           # 修复VLESS字段名+生成TLS证书
+- 生成Reality密钥.py           # 使用OpenSSL生成X25519密钥
+- 检查修复后状态.py            # 检查服务状态和端口
+- 备份数据库.py                # 备份数据库到本地
+- SUI一键恢复脚本.py           # 一键恢复到新VPS
+- 完整功能测试.py              # 全面测试脚本
+- project_snapshot.md          # 项目状态快照
+
+============================================================
