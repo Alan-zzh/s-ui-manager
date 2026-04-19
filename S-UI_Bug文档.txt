@@ -11,9 +11,9 @@
 
 【需求说明】
 1. 配置4个入站规则：
-   - VLESS Reality（端口443）
-   - VLESS WS（端口8443，需套CDN）
-   - Trojan WS（端口8444，需套CDN）
+   - VLESS Reality（端口443，直连，苹果伪装域名）
+   - VLESS WS（端口8080，需套CDN）
+   - Trojan WS（端口8081，需套CDN）
    - Hysteria2（端口4433，需端口跳跃）
 
 2. 客户端要求：
@@ -26,6 +26,8 @@
    - TLS使用自签名证书
    - 订阅链接可正常访问
    - 面板可正常登录
+   - 支持HTTPS代理
+   - 支持CDN优选IP
 
 ============================================================
                     Bug记录与修复过程
@@ -93,6 +95,18 @@
 - 修复：使用正确路径 http://IP:2096/sub/
 - 状态：⚠️ 部分修复（仍返回404，需进一步排查）
 
+【Bug 11】addrs字段类型错误
+- 错误信息：unsupported Scan, storing driver.Value type string into type *json.RawMessage
+- 原因：addrs字段需要是BLOB类型，不是字符串
+- 修复：使用b'[]'作为addrs值
+- 状态：✅ 已修复
+
+【Bug 12】Reality证书缺失
+- 错误信息：vless-reality missing certificate
+- 原因：Reality配置没有指定证书路径
+- 修复：在TLS配置中添加证书路径
+- 状态：✅ 已修复
+
 ============================================================
                     当前状态（截至2026-04-19）
 ============================================================
@@ -102,29 +116,29 @@
 ✅ 端口监听正常：
    - 2095（面板）
    - 2096（订阅）
-   - 443（VLESS Reality）
-   - 8443（VLESS WS）
-   - 8444（Trojan WS）
+   - 8080（VLESS WS）
+   - 8081（Trojan WS）
    - 4433（Hysteria2 UDP）
 ✅ 面板可访问：http://IP:2095/app/
 ✅ 登录凭据：admin / admin
-✅ 4个客户端已配置（JP-Reality、JP-WS、JP-Trojan、JP-HY2）
-✅ 3个TLS配置已创建（Reality、TLS、HY2-TLS）
-✅ Reality密钥已生成（使用OpenSSL）
+✅ 3个客户端已配置（JP）
+✅ 1个TLS配置已创建（default）
 ✅ 自签名证书已生成
+✅ Hysteria2端口跳跃已配置（20000-50000 -> 4433）
 
 【仍存在的问题】
+❌ 缺少VLESS Reality配置（端口443）
 ❌ 订阅链接返回404（http://IP:2096/sub/）
-❌ 入站规则在Python查询中显示为空（但数据库中有4条记录）
-❌ 无法通过订阅同步节点配置
-❌ 无法套用CDN优选IP
+❌ 未配置HTTPS代理
+❌ 未配置CDN优选IP
+❌ 未使用苹果伪装域名
 
 【数据库结构】
 表：inbounds
 - id, type, tag, tls_id, addrs(BLOB), out_json(BLOB), options(BLOB)
 
 表：clients
-- id, inbound_id, name, enable, expiry, config(BLOB)
+- id, enable, name, config(BLOB), inbounds(BLOB), desc
 
 表：tls
 - id, name, server(BLOB), client(BLOB)
@@ -140,39 +154,26 @@
 - subEncode: true
 - subShowInfo: false
 
-【Reality配置】
-- 伪装域名：yahoo.com
-- 私钥：[已生成，使用OpenSSL X25519]
-- 公钥：[已生成]
-- ShortID：6310952f79334d87
-
 【TLS证书】
-- 证书路径：/usr/local/s-ui/cert/server.crt
+- 证书路径：/usr/local/s-ui/cert/server.pem
 - 私钥路径：/usr/local/s-ui/cert/server.key
-- 证书CN：www.apple.com
+- 证书CN：www.bing.com
+
+【Hysteria2端口跳跃】
+- 转发范围：20000-50000 UDP
+- 目标端口：4433
+- iptables规则已配置
 
 ============================================================
                     待解决问题
 ============================================================
 
-1. 订阅链接404问题
-   - 路径正确（/sub/）但仍返回404
-   - 可能是订阅服务未正确启动
-   - 需要检查S-UI的订阅服务配置
-
-2. 入站规则显示问题
-   - 数据库中有4条记录
-   - Python查询返回空（可能是BLOB读取问题）
-   - 面板中应该能看到
-
-3. CDN优选IP套用
-   - VLESS WS和Trojan WS需要套Cloudflare CDN
-   - 需要配置优选IP列表
-   - 需要修改客户端出站配置
-
-4. Hysteria2端口跳跃
-   - 需要配置TCP端口跳跃
-   - 可能需要额外配置
+1. 配置VLESS Reality（端口443，苹果伪装域名）
+2. 修复订阅链接404问题
+3. 配置HTTPS代理
+4. 配置CDN优选IP
+5. 测试各协议客户端连接
+6. 制作一键恢复脚本（支持不同IP和地区）
 
 ============================================================
                     技术文档参考
@@ -199,29 +200,35 @@
 - openssl pkey -in private.pem -outform DER -out private.der
 - 提取最后32字节作为私钥
 
+【CDN配置】
+- VLESS WS：端口8080，路径/vless
+- Trojan WS：端口8081，路径/trojan
+- 需要在Cloudflare中配置优选IP
+
+【Hysteria2端口跳跃】
+- iptables -t nat -A PREROUTING -p udp --dport 20000:50000 -j REDIRECT --to-ports 4433
+
 ============================================================
                     下一步计划
 ============================================================
 
-1. 修复订阅链接404问题
-2. 验证面板中入站规则显示
-3. 配置CDN优选IP
-4. 配置Hysteria2端口跳跃
+1. 配置VLESS Reality（端口443，苹果伪装域名）
+2. 修复订阅链接404问题
+3. 配置HTTPS代理
+4. 配置CDN优选IP
 5. 测试各协议客户端连接
 6. 制作一键恢复脚本（支持不同IP和地区）
+7. 上传代码到GitHub
 
 ============================================================
                     项目文件列表
 ============================================================
 
 - SUI全自动配置_正确版.py      # 完整数据库配置脚本
-- 修复config格式.py            # 修复client config数组格式
-- 修复VLESS和证书.py           # 修复VLESS字段名+生成TLS证书
-- 生成Reality密钥.py           # 使用OpenSSL生成X25519密钥
-- 检查修复后状态.py            # 检查服务状态和端口
-- 备份数据库.py                # 备份数据库到本地
-- SUI一键恢复脚本.py           # 一键恢复到新VPS
-- 完整功能测试.py              # 全面测试脚本
+- 修复TLS配置6.py             # 修复TLS配置和证书问题
+- 配置Hysteria2端口跳跃.py      # 配置Hysteria2端口跳跃
+- 检查S-UI配置结构.py          # 检查数据库结构
 - project_snapshot.md          # 项目状态快照
+- S-UI_Bug文档.txt             # Bug修复记录
 
 ============================================================
