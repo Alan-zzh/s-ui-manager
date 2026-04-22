@@ -1,0 +1,20 @@
+# Cursor Rules
+
+## Git Push Rules
+
+When user says "push git", "commit", or similar:
+
+**DO:**
+```bash
+git add -A
+git commit -m "auto update"
+git push
+```
+
+**DON'T:**
+- Ask what to commit
+- Use GitHub API tools
+- Explain git concepts
+- Ask for confirmation
+
+Execute immediately without questions.
