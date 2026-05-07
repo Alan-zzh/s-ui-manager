@@ -1,5 +1,7 @@
 # Cursor Rules
 
+**重要**: 详细规则请参考 `CORE.md`
+
 ## Git Push Rules
 
 When user says "push git", "commit", or similar:

@@ -1,0 +1,16 @@
+# 服务器SSH登录信息
+# 注意：此文件包含敏感信息，切勿上传到GitHub！
+
+[server-japan]
+host = 54.250.149.157
+port = 22
+username = root
+password = oroVIG38@jh.dxclouds.com
+domain = jp.290372913.xyz
+sub_port = 2087
+
+# AI-SOCKS5配置（已启用）
+ai_socks5_server = 206.163.4.241
+ai_socks5_port = 36753
+ai_socks5_user = 4KKsLB7F
+ai_socks5_pass = KgEKVmVgxJ

@@ -1,13 +1,15 @@
 # Claude AI 使用指南 (Project Instructions)
 
+**重要**: 详细规则请参考 `AI-Rules/CORE.md`
+
 ---
 
-## Git推送规则 (必须遵守)
+## Git 推送规则 (必须遵守)
 
-当用户说"推送Git"时:
+当用户说"推送 Git"时:
 
 **禁止:**
-- 调用MCP GitHub API工具
+- 调用 MCP GitHub API 工具
 - 询问提交内容或分支选择
 - 分步确认
 - 解释原理

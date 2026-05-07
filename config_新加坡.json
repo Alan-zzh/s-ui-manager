@@ -1,0 +1,168 @@
+{
+  "log": {
+    "disabled": false,
+    "level": "info",
+    "output": "/var/log/singbox.log",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "dns_proxy",
+        "address": "tls://8.8.8.8",
+        "detour": "direct"
+      },
+      {
+        "tag": "dns_direct",
+        "address": "223.5.5.5",
+        "detour": "direct"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-reality",
+      "listen": "0.0.0.0",
+      "listen_port": 443,
+      "users": [
+        {
+          "uuid": "bca7b307-bc63-4d7f-a400-419a0e697bbc",
+          "flow": "xtls-rprx-vision"
+        }
+      ],
+      "tls": {
+        "enabled": true,
+        "server_name": "www.apple.com",
+        "reality": {
+          "enabled": true,
+          "handshake": {
+            "server": "www.apple.com",
+            "server_port": 443
+          },
+          "private_key": "8FNLto8PsqWqB2k82jReQfHYhE5qqShyqs7WwL67XlI",
+          "short_id": [
+            "abcd1234"
+          ]
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-ws",
+      "listen": "0.0.0.0",
+      "listen_port": 8443,
+      "users": [
+        {
+          "uuid": "e8b08678-f4a5-46c4-a081-c69fcf2e4323"
+        }
+      ],
+      "transport": {
+        "type": "ws",
+        "path": "/vless-ws",
+        "headers": {
+          "Host": "us.290372913.xyz"
+        }
+      },
+      "tls": {
+        "enabled": true,
+        "server_name": "us.290372913.xyz",
+        "certificate_path": "/root/singbox-eps-node/cert/cert.pem",
+        "key_path": "/root/singbox-eps-node/cert/key.pem",
+        "alpn": [
+          "http/1.1"
+        ]
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-upgrade",
+      "listen": "0.0.0.0",
+      "listen_port": 2053,
+      "users": [
+        {
+          "uuid": "e8b08678-f4a5-46c4-a081-c69fcf2e4323"
+        }
+      ],
+      "transport": {
+        "type": "httpupgrade",
+        "path": "/vless-upgrade",
+        "host": "us.290372913.xyz"
+      },
+      "tls": {
+        "enabled": true,
+        "server_name": "us.290372913.xyz",
+        "certificate_path": "/root/singbox-eps-node/cert/cert.pem",
+        "key_path": "/root/singbox-eps-node/cert/key.pem",
+        "alpn": [
+          "http/1.1"
+        ]
+      }
+    },
+    {
+      "type": "trojan",
+      "tag": "trojan-ws",
+      "listen": "0.0.0.0",
+      "listen_port": 2083,
+      "users": [
+        {
+          "password": "1aa53e9368144b07d5f01bde59203072"
+        }
+      ],
+      "transport": {
+        "type": "ws",
+        "path": "/trojan-ws",
+        "headers": {
+          "Host": "us.290372913.xyz"
+        }
+      },
+      "tls": {
+        "enabled": true,
+        "server_name": "us.290372913.xyz",
+        "certificate_path": "/root/singbox-eps-node/cert/cert.pem",
+        "key_path": "/root/singbox-eps-node/cert/key.pem",
+        "alpn": [
+          "http/1.1"
+        ]
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "hysteria2",
+      "listen": "0.0.0.0",
+      "listen_port": 443,
+      "users": [
+        {
+          "password": "c377167568c6ffbb83b44b5b5395095f"
+        }
+      ],
+      "tls": {
+        "enabled": true,
+        "server_name": "www.apple.com",
+        "certificate_path": "/root/singbox-eps-node/cert/cert.pem",
+        "key_path": "/root/singbox-eps-node/cert/key.pem",
+        "alpn": [
+          "h3"
+        ]
+      },
+      "obfs": {
+        "type": "salamander",
+        "password": "c3771675"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    }
+  ],
+  "route": {
+    "rules": [],
+    "final": "direct"
+  }
+}

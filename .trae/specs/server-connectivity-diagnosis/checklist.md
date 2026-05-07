@@ -1,0 +1,9 @@
+- [x] diagnose.sh 诊断脚本覆盖14项检查，输出格式清晰，标记问题项和修复建议
+- [x] config.py CDN_PREFERRED_IPS 不包含任何 104.x.x.x 段IP
+- [x] cdn_monitor.py ImportError降级的 CDN_PREFERRED_IPS 与 config.py 同步更新
+- [x] cert_manager.py restart_singbox() 包含 singbox-cdn 重启
+- [x] health_check.sh check_ports() 包含 UDP 443 检查
+- [x] cdn_monitor.py init_db() 数据库连接在 finally 中关闭
+- [x] subscription_service.py 客户端配置 route.rule_set 包含 geoip-cn 定义
+- [x] project_snapshot.md 版本号+1，记录本次修复内容
+- [x] AI_DEBUG_HISTORY.md 记录新发现的Bug和预防规则

@@ -17,12 +17,14 @@ for /r %%d in (.) do (
         :: 创建目标目录
         if not exist "%%d\.trae\rules" mkdir "%%d\.trae\rules" 2>nul
         
-        :: 复制规则文件
+        :: 复制核心规则文件（按重要性排序）
+        copy "%RULES_SOURCE%CORE.md" "%%d\.trae\rules\CORE.md" >nul 2>&1
         copy "%RULES_SOURCE%personal.md" "%%d\.trae\rules\personal.md" >nul 2>&1
-        copy "%RULES_SOURCE%git-push-rules.md" "%%d\.trae\rules\git-push-rules.md" >nul 2>&1
+        copy "%RULES_SOURCE%must.md" "%%d\.trae\rules\must.md" >nul 2>&1
+        
+        :: 复制 AI 工具专用规则
         copy "%RULES_SOURCE%CLAUDE.md" "%%d\CLAUDE.md" >nul 2>&1
         copy "%RULES_SOURCE%.cursorrules" "%%d\.cursorrules" >nul 2>&1
-        copy "%RULES_SOURCE%.ai-rules.md" "%%d\.ai-rules.md" >nul 2>&1
         
         echo   ✓ 规则已同步
         echo.

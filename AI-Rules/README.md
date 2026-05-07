@@ -1,8 +1,9 @@
 # AI-Rules 个人全局规则包
 
-**版本**: v1.0  
+**版本**: v2.0  
 **作者**: Alan  
-**创建日期**: 2024-04-23
+**创建日期**: 2024-04-23  
+**更新日期**: 2026-04-25
 
 ---
 
@@ -32,7 +33,7 @@
 2. 新系统恢复后，按下方"部署到各AI"说明使用
 
 ### 场景2：新项目
-1. 复制对应规则文件到新项目
+1. 复制 `CORE.md` 和对应入口文件到新项目
 2. AI自动读取并遵守
 
 ### 场景3：新AI工具
@@ -45,11 +46,11 @@
 
 | 文件 | 用途 | 部署位置 |
 |------|------|----------|
-| `personal.md` | Trae AI主规则 | `~/.trae/rules/` 或项目 `.trae/rules/` |
-| `CLAUDE.md` | Claude/WorkBuddy通用规则 | 项目根目录 |
-| `.cursorrules` | Cursor规则 | 项目根目录 |
-| `git-push-rules.md` | Git推送专用规则 | 项目 `.trae/rules/` |
-| `.ai-rules.md` | 精简版规则 | 项目根目录 |
+| `CORE.md` | 核心规则库（单一真相源） | AI-Rules/ 目录 |
+| `personal.md` | Trae AI主规则 | AI-Rules/ 目录 |
+| `CLAUDE.md` | Claude/WorkBuddy通用规则 | 项目根目录或AI-Rules/ |
+| `.cursorrules` | Cursor规则 | AI-Rules/ 目录 |
+| `must.md` | Singbox项目铁律 | AI-Rules/ 目录 |
 
 ---
 
@@ -82,4 +83,4 @@ git push
 
 ## 📞 维护
 
-规则需要更新时，修改本文件夹内文件，然后执行 `同步AI规则.bat` 同步到各项目。
+规则需要更新时，**只需修改 `CORE.md`**，然后执行 `同步AI规则.bat` 同步到各项目。
