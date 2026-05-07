@@ -1,21 +1,13 @@
-import paramiko
+from audit_config import get_servers
+from ssh_utils import ssh_connect, run_command
 
-servers = [
-    ('日本', '52.195.179.240', 'je*pMaN8QNfCMK'),
-    ('新加坡', '13.212.37.11', 'jbfCMP75@jh.dxclouds.com'),
-]
-
-for name, ip, password in servers:
+for srv in get_servers():
     print(f"\n{'='*60}")
-    print(f"=== 修复 {name} 环境变量 ===")
+    print(f"=== 修复 {srv['name']} 环境变量 ===")
     print(f"{'='*60}")
-    
-    c = paramiko.SSHClient()
-    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    c.connect(ip, username='root', password=password, timeout=15)
-    
-    # 更新systemd服务，添加所有需要的环境变量
-    cmd = """
+
+    with ssh_connect(srv) as c:
+        cmd = """
 cat > /etc/systemd/system/singbox.service << 'EOF'
 [Unit]
 Description=Singbox Service
@@ -39,18 +31,15 @@ systemctl restart singbox
 sleep 2
 systemctl is-active singbox
 """
-    stdin, stdout, stderr = c.exec_command(cmd)
-    print(f"singbox状态: {stdout.read().decode().strip()}")
-    
-    # 验证配置
-    cmd = 'ENABLE_DEPRECATED_LEGACY_DNS_SERVERS=true ENABLE_DEPRECATED_MISSING_DOMAIN_RESOLVER=true /usr/local/bin/sing-box check -c /root/singbox-eps-node/config.json 2>&1'
-    stdin, stdout, stderr = c.exec_command(cmd)
-    check_out = stdout.read().decode().strip()
-    if 'valid' in check_out.lower() or check_out == '':
-        print("✅ 配置语法正确")
-    else:
-        print(f"⚠️ {check_out}")
-    
-    c.close()
+        out, err = run_command(c, cmd)
+        print(f"singbox状态: {out.strip()}")
+
+        cmd = 'ENABLE_DEPRECATED_LEGACY_DNS_SERVERS=true ENABLE_DEPRECATED_MISSING_DOMAIN_RESOLVER=true /usr/local/bin/sing-box check -c /root/singbox-eps-node/config.json 2>&1'
+        out, err = run_command(c, cmd)
+        check_out = out.strip()
+        if 'valid' in check_out.lower() or check_out == '':
+            print("✅ 配置语法正确")
+        else:
+            print(f"⚠️ {check_out}")
 
 print("\n全部修复完成")

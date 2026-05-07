@@ -1,21 +1,18 @@
-import paramiko
+import sys
+import io
+from audit_config import get_servers
+from ssh_utils import ssh_connect, run_command
 
-servers = [
-    ('日本', '52.195.179.240', 'je*pMaN8QNfCMK'),
-    ('新加坡', '13.212.37.11', 'jbfCMP75@jh.dxclouds.com'),
-]
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-for name, ip, password in servers:
+for srv in get_servers():
+    name = srv['name']
     print(f"\n{'='*50}")
     print(f"=== {name} ===")
     print(f"{'='*50}")
-    
-    c = paramiko.SSHClient()
-    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    c.connect(ip, username='root', password=password, timeout=15)
-    
-    # 1. 检查MTU和分片
-    cmd = """
+
+    with ssh_connect(srv) as c:
+        cmd = """
 echo "=== MTU ==="
 ip link show | grep mtu
 echo ""
@@ -34,21 +31,17 @@ echo ""
 echo "=== 丢包统计 ==="
 netstat -s | grep -i "drop\|loss\|error" | head -10
 """
-    stdin, stdout, stderr = c.exec_command(cmd)
-    print(stdout.read().decode())
-    
-    # 2. 检查是否有流量限制
-    cmd = 'tc class show && echo "---" && tc filter show'
-    stdin, stdout, stderr = c.exec_command(cmd)
-    print("\n【流量限制】")
-    print(stdout.read().decode())
-    
-    # 3. 检查singbox版本
-    cmd = '/usr/local/bin/sing-box version'
-    stdin, stdout, stderr = c.exec_command(cmd)
-    print("\n【singbox版本】")
-    print(stdout.read().decode())
-    
-    c.close()
+        out, err = run_command(c, cmd)
+        print(out)
+
+        cmd = 'tc class show && echo "---" && tc filter show'
+        out, err = run_command(c, cmd)
+        print("\n【流量限制】")
+        print(out)
+
+        cmd = '/usr/local/bin/sing-box version'
+        out, err = run_command(c, cmd)
+        print("\n【singbox版本】")
+        print(out)
 
 print("\n全部完成")
