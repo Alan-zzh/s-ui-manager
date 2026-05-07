@@ -2,16 +2,18 @@ import paramiko
 import time
 import sys
 import io
+from audit_config import get_server_old_jp
 
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(
         sys.stdout.buffer, encoding='utf-8', errors='replace'
     )
 
-host = '52.195.179.240'
-port = 22
-username = 'root'
-password = 'je*pMaN8QNfCMK'
+server = get_server_old_jp()
+host = server['host']
+port = server['port']
+username = server['username']
+password = server['password']
 
 client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
