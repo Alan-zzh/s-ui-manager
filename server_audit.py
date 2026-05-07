@@ -2,43 +2,40 @@ import paramiko
 import time
 import sys
 import io
+from audit_config import get_servers
 
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(
         sys.stdout.buffer, encoding='utf-8', errors='replace'
     )
 
-servers = [
-    ('日本', '54.250.149.157', 'oroVIG38@jh.dxclouds.com'),
-    ('日本(旧IP)', '52.195.179.240', 'je*pMaN8QNfCMK'),
-    ('新加坡', '13.212.37.11', 'jbfCMP75@jh.dxclouds.com'),
-]
+servers = get_servers()
 
 connected_server = None
 
-for name, ip, password in servers:
-    print(f"尝试连接 {name} ({ip})...")
+for srv in servers:
+    print(f"尝试连接 {srv['name']} ({srv['host']})...")
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
         start = time.time()
-        client.connect(ip, port=22, username='root', password=password, timeout=15, allow_agent=False, look_for_keys=False)
+        client.connect(srv['host'], port=srv['port'], username=srv['username'], password=srv['password'], timeout=15, allow_agent=False, look_for_keys=False)
         conn_time = (time.time() - start) * 1000
         print(f"✅ 连接成功: {conn_time:.0f}ms")
-        connected_server = (name, ip, password, client)
+        connected_server = (srv, client)
         break
     except Exception as e:
         print(f"❌ 连接失败: {e}")
         try:
             client.close()
-        except:
+        except Exception:
             pass
 
 if not connected_server:
     print("所有服务器均无法连接")
     sys.exit(1)
 
-name, ip, password, client = connected_server
+srv, client = connected_server
 
 checks = [
     ("1. 系统基本信息", """
