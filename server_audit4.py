@@ -9,7 +9,6 @@ if sys.platform == 'win32':
     )
 
 server = get_server_old_jp()
-
 with ssh_connect(server) as client:
     checks = [
         ("1. config.py完整内容", """
