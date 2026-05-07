@@ -1,11 +1,14 @@
-import paramiko
+import sys
+import io
+from audit_config import get_server
+from ssh_utils import ssh_connect, run_command
 
-c = paramiko.SSHClient()
-c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-c.connect('13.212.37.11', username='root', password='jbfCMP75@jh.dxclouds.com', timeout=15)
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-# 1. 检查当前CDN IP
-cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
+srv = get_server('sg')
+
+with ssh_connect(srv) as c:
+    cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
 import sqlite3
 conn = sqlite3.connect("data/singbox.db")
 c = conn.cursor()
@@ -14,21 +17,18 @@ for k,v in c.fetchall():
     print(f"{k}: {v}")
 conn.close()
 EOF"""
-stdin, stdout, stderr = c.exec_command(cmd)
-print("【数据库CDN设置】")
-print(stdout.read().decode())
+    out, err = run_command(c, cmd)
+    print("【数据库CDN设置】")
+    print(out)
 
-# 2. 获取订阅内容
-cmd = 'curl -sk https://localhost:2087/sub/SG 2>&1 | base64 -d 2>/dev/null'
-stdin, stdout, stderr = c.exec_command(cmd)
-content = stdout.read().decode()
-print("\n【订阅内容】")
-for line in content.split('\n'):
-    if line.strip():
-        print(line[:150])
+    cmd = 'curl -sk https://localhost:2087/sub/SG 2>&1 | base64 -d 2>/dev/null'
+    out, err = run_command(c, cmd)
+    print("\n【订阅内容】")
+    for line in out.split('\n'):
+        if line.strip():
+            print(line[:150])
 
-# 3. 测试CDN IP连通性
-cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
+    cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
 import sqlite3, socket, time
 conn = sqlite3.connect("data/singbox.db")
 c = conn.cursor()
@@ -51,14 +51,11 @@ if row:
                 print(f"{ip}:{port} ERROR {e}")
 conn.close()
 EOF"""
-stdin, stdout, stderr = c.exec_command(cmd)
-print("\n【CDN IP端口连通性】")
-print(stdout.read().decode())
+    out, err = run_command(c, cmd)
+    print("\n【CDN IP端口连通性】")
+    print(out)
 
-# 4. 检查config.py里的CDN_PREFERRED_IPS
-cmd = "grep -A 30 'CDN_PREFERRED_IPS' /root/singbox-eps-node/scripts/config.py | head -35"
-stdin, stdout, stderr = c.exec_command(cmd)
-print("\n【config.py CDN_PREFERRED_IPS】")
-print(stdout.read().decode())
-
-c.close()
+    cmd = "grep -A 30 'CDN_PREFERRED_IPS' /root/singbox-eps-node/scripts/config.py | head -35"
+    out, err = run_command(c, cmd)
+    print("\n【config.py CDN_PREFERRED_IPS】")
+    print(out)

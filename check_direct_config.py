@@ -1,26 +1,22 @@
-import paramiko
+import sys
+import io
+from audit_config import get_servers
+from ssh_utils import ssh_connect, run_command
 
-servers = [
-    ('日本', '52.195.179.240', 'je*pMaN8QNfCMK'),
-    ('新加坡', '13.212.37.11', 'jbfCMP75@jh.dxclouds.com'),
-]
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-for name, ip, password in servers:
+for srv in get_servers():
+    name = srv['name']
     print(f"\n{'='*50}")
     print(f"=== {name} ===")
     print(f"{'='*50}")
-    
-    c = paramiko.SSHClient()
-    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    c.connect(ip, username='root', password=password, timeout=15)
-    
-    # 1. 检查config.json中Reality和Hysteria2的配置
-    cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
+
+    with ssh_connect(srv) as c:
+        cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
 import json
 with open('config.json', 'r') as f:
     config = json.load(f)
 
-# 检查inbounds
 for inbound in config.get('inbounds', []):
     tag = inbound.get('tag', '')
     if 'Reality' in tag or 'Hysteria' in tag or 'reality' in tag or 'hysteria' in tag:
@@ -38,17 +34,15 @@ for inbound in config.get('inbounds', []):
         if 'domain_strategy' in inbound:
             print(f"  Domain Strategy: {inbound.get('domain_strategy')}")
 EOF"""
-    stdin, stdout, stderr = c.exec_command(cmd)
-    print("【直连协议配置】")
-    print(stdout.read().decode())
-    
-    # 2. 检查outbounds配置
-    cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
+        out, err = run_command(c, cmd)
+        print("【直连协议配置】")
+        print(out)
+
+        cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
 import json
 with open('config.json', 'r') as f:
     config = json.load(f)
 
-# 检查outbounds
 for outbound in config.get('outbounds', []):
     tag = outbound.get('tag', '')
     if 'direct' in tag.lower() or 'block' in tag.lower():
@@ -57,12 +51,11 @@ for outbound in config.get('outbounds', []):
         if 'domain_strategy' in outbound:
             print(f"  Domain Strategy: {outbound.get('domain_strategy')}")
 EOF"""
-    stdin, stdout, stderr = c.exec_command(cmd)
-    print("\n【出站配置】")
-    print(stdout.read().decode())
-    
-    # 3. 检查路由规则
-    cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
+        out, err = run_command(c, cmd)
+        print("\n【出站配置】")
+        print(out)
+
+        cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
 import json
 with open('config.json', 'r') as f:
     config = json.load(f)
@@ -80,12 +73,11 @@ for i, rule in enumerate(rules):
     if 'outbound' in rule:
         print(f"  Outbound: {rule['outbound']}")
 EOF"""
-    stdin, stdout, stderr = c.exec_command(cmd)
-    print("\n【路由规则】")
-    print(stdout.read().decode())
-    
-    # 4. 检查实验性配置
-    cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
+        out, err = run_command(c, cmd)
+        print("\n【路由规则】")
+        print(out)
+
+        cmd = """cd /root/singbox-eps-node && python3 << 'EOF'
 import json
 with open('config.json', 'r') as f:
     config = json.load(f)
@@ -93,10 +85,8 @@ with open('config.json', 'r') as f:
 exp = config.get('experimental', {})
 print(f"实验性配置: {json.dumps(exp, indent=2)}")
 EOF"""
-    stdin, stdout, stderr = c.exec_command(cmd)
-    print("\n【实验性配置】")
-    print(stdout.read().decode())
-    
-    c.close()
+        out, err = run_command(c, cmd)
+        print("\n【实验性配置】")
+        print(out)
 
 print("\n全部完成")

@@ -1,8 +1,7 @@
-import paramiko
-import time
+from audit_config import get_server_old_jp
+from ssh_utils import ssh_connect, run_command
 import sys
 import io
-from audit_config import get_server_old_jp
 
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(
@@ -10,17 +9,9 @@ if sys.platform == 'win32':
     )
 
 server = get_server_old_jp()
-host = server['host']
-port = server['port']
-username = server['username']
-password = server['password']
-
-client = paramiko.SSHClient()
-client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-client.connect(host, port=port, username=username, password=password, timeout=15, allow_agent=False, look_for_keys=False)
-
-checks = [
-    ("1. singbox.db CDN数据", """
+with ssh_connect(server) as client:
+    checks = [
+        ("1. singbox.db CDN数据", """
 cd /root/singbox-eps-node
 python3 << 'PYEOF'
 import sqlite3, os
@@ -58,7 +49,7 @@ else:
     print("singbox.db不存在")
 PYEOF
 """),
-    ("2. 订阅实际输出内容解码", """
+        ("2. 订阅实际输出内容解码", """
 cd /root/singbox-eps-node
 python3 << 'PYEOF'
 import urllib.request, base64, json
@@ -102,7 +93,7 @@ except Exception as e:
     print(f"错误: {e}")
 PYEOF
 """),
-    ("3. cdn_monitor锁文件机制检查", """
+        ("3. cdn_monitor锁文件机制检查", """
 cd /root/singbox-eps-node
 python3 << 'PYEOF'
 import os, fcntl
@@ -127,7 +118,7 @@ except Exception as e:
     print(f"锁操作异常: {e}")
 PYEOF
 """),
-    ("4. 外部CDN API连通性测试", """
+        ("4. 外部CDN API连通性测试", """
 echo "=== WeTest ==="
 curl -sk --connect-timeout 5 "https://ct.cloudflare.182682.xyz" 2>/dev/null | head -3 || echo "WeTest不可达"
 echo ""
@@ -143,21 +134,17 @@ echo ""
 echo "=== IPDB ==="
 curl -sk --connect-timeout 5 "https://ipdb.api.030101.xyz/?type=bestcf" 2>/dev/null | head -3 || echo "IPDB不可达"
 """),
-]
+    ]
+    for title, cmd in checks:
+        print(f"\n{'='*70}")
+        print(f"  {title}")
+        print(f"{'='*70}")
+        out, err = run_command(client, cmd)
+        if out.strip():
+            print(out[:6000])
+            if len(out) > 6000:
+                print(f"\n... [截断，共{len(out)}字符]")
+        if err.strip():
+            print(f"[STDERR] {err[:1000]}")
 
-for title, cmd in checks:
-    print(f"\n{'='*70}")
-    print(f"  {title}")
-    print(f"{'='*70}")
-    stdin, stdout, stderr = client.exec_command(cmd, timeout=30)
-    out = stdout.read().decode('utf-8', errors='replace')
-    err = stderr.read().decode('utf-8', errors='replace')
-    if out.strip():
-        print(out[:6000])
-        if len(out) > 6000:
-            print(f"\n... [截断，共{len(out)}字符]")
-    if err.strip():
-        print(f"[STDERR] {err[:1000]}")
-
-client.close()
 print("\n\n最终验证完成")

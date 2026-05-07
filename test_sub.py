@@ -1,25 +1,17 @@
-import paramiko
+from audit_config import get_servers
+from ssh_utils import ssh_connect, run_command
 
-def test_sub(name, ip, password, code):
-    print(f"\n=== {name} ({ip}) ===")
-    c = paramiko.SSHClient()
-    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    c.connect(ip, username='root', password=password, timeout=15)
-    
-    # 用大写获取订阅内容
-    cmd = f'curl -sk https://localhost:2087/sub/{code} 2>&1 | base64 -d 2>/dev/null | head -20'
-    stdin, stdout, stderr = c.exec_command(cmd)
-    content = stdout.read().decode()
-    print(f"\n【订阅内容】")
-    print(content[:800] if content else "空")
-    
-    # 检查是否有CDN IP
-    if '104.' in content or '173.' in content or '172.' in content:
-        print("\n✅ 订阅包含CDN IP")
-    else:
-        print("\n❌ 订阅不包含CDN IP，可能用的服务器IP")
-    
-    c.close()
+for srv in get_servers():
+    code = 'JP' if srv['name'] == '日本' else 'SG'
+    print(f"\n=== {srv['name']} ({srv['host']}) ===")
 
-test_sub('日本', '52.195.179.240', 'je*pMaN8QNfCMK', 'JP')
-test_sub('新加坡', '13.212.37.11', 'jbfCMP75@jh.dxclouds.com', 'SG')
+    with ssh_connect(srv) as c:
+        cmd = f'curl -sk https://localhost:2087/sub/{code} 2>&1 | base64 -d 2>/dev/null | head -20'
+        out, err = run_command(c, cmd)
+        print(f"\n【订阅内容】")
+        print(out[:800] if out else "空")
+
+        if '104.' in out or '173.' in out or '172.' in out:
+            print("\n✅ 订阅包含CDN IP")
+        else:
+            print("\n❌ 订阅不包含CDN IP，可能用的服务器IP")

@@ -69,3 +69,29 @@ def get_server_old_jp():
         'username': get('SERVER_JP_OLD_USER'),
         'password': get('SERVER_JP_OLD_PASSWORD'),
     }
+
+
+_SERVER_MAP = {
+    'jp': 'SERVER_JP',
+    'jp_old': 'SERVER_JP_OLD',
+    'sg': 'SERVER_SG',
+    'other': 'SERVER_OTHER',
+}
+
+
+def get_server(name):
+    """按名称获取单台服务器配置
+
+    name: 'jp', 'jp_old', 'sg'
+    返回: {'host': ..., 'port': ..., 'username': ..., 'password': ...}
+    """
+    prefix = _SERVER_MAP.get(name)
+    if prefix is None:
+        print(f"错误: 未知服务器名称 '{name}'，可选: {list(_SERVER_MAP.keys())}", file=sys.stderr)
+        sys.exit(1)
+    return {
+        'host': get(f'{prefix}_HOST'),
+        'port': int(get(f'{prefix}_PORT', '22')),
+        'username': get(f'{prefix}_USER'),
+        'password': get(f'{prefix}_PASSWORD'),
+    }
